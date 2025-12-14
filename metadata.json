@@ -1,0 +1,7 @@
+{
+  "name": "Berlin Palimpsest",
+  "description": "A brutalist electronic literature application exploring Berlin's hidden layers through documentary narratives and satellite imagery.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
