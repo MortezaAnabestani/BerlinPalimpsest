@@ -3,7 +3,7 @@ import { generateDocumentaryNarrative } from './services/geminiService';
 import { SatelliteView } from './components/SatelliteView';
 import { BrutalistButton, ManifestoCard, CoordinatesDisplay, GlitchTitle, TypewriterText } from './components/BrutalistUI';
 import { NarrativeLayer, AppState, ThemeOption, Language } from './types';
-import { MapPin, X, AlertTriangle, ScanLine, BookOpen, ArrowRight, Terminal, ExternalLink } from 'lucide-react';
+import { MapPin, X, AlertTriangle, ScanLine, BookOpen, ArrowRight, Terminal, ExternalLink, Minus } from 'lucide-react';
 
 const THEMES: ThemeOption[] = [
   { 
@@ -55,8 +55,8 @@ const TRANSLATIONS = {
     close: "Close File",
     manualInput: "MANUAL FREQUENCY INJECTION",
     inputPlaceholder: "Enter custom search parameter...",
-    artisticStatementTitle: "ARTISTIC STATEMENT",
-    artisticStatement: "This interface is a machine for remembering. It treats the city not as a static map, but as a fluid code to be compiled and decompiled.",
+    artisticStatementTitle: "MANIFESTO",
+    artisticStatement: "This interface operates not as a map, but as a stratification device. We reject the static neutrality of cartography, asserting instead that every coordinate holds a suppressed frequency. By utilizing generative AI not as a creator, but as a spectral medium, we force the digital archive to speak its unconscious. This is an act of digital excavation to reveal the 'Palimpsest'—the text written over the erased past. We prioritize the glitch, the fragment, and the exile over the monument. This work explores the aesthetics of disappearance and the politics of memory in the algorithmic age.",
     developer: "Developed by Morteza Anabestani",
     role: "Founder of Codabiat (Persian Electronic Literature Group)"
   },
@@ -76,8 +76,8 @@ const TRANSLATIONS = {
     close: "Akte Schließen",
     manualInput: "MANUELLE FREQUENZEINGABE",
     inputPlaceholder: "Suchparameter eingeben...",
-    artisticStatementTitle: "KÜNSTLERISCHES STATEMENT",
-    artisticStatement: "Diese Schnittstelle ist eine Maschine des Erinnerns. Sie behandelt die Stadt nicht als statische Karte, sondern als flüssigen Code.",
+    artisticStatementTitle: "MANIFEST",
+    artisticStatement: "Diese Schnittstelle fungiert nicht als Karte, sondern als Stratifizierungsgerät. Wir lehnen die statische Neutralität der Kartografie ab und behaupten stattdessen, dass jede Koordinate eine unterdrückte Frequenz birgt. Indem wir generative KI nicht als Schöpfer, sondern als spektrales Medium nutzen, zwingen wir das digitale Archiv, sein Unbewusstes auszusprechen. Dies ist ein Akt der digitalen Ausgrabung, um das „Palimpsest“ zu enthüllen – den Text, der über die gelöschte Vergangenheit geschrieben wurde. Wir priorisieren den Glitch, das Fragment und das Exil gegenüber dem Monument.",
     developer: "Entwickelt von Morteza Anabestani",
     role: "Gründer von Codabiat (Persische Gruppe für elektronische Literatur)"
   },
@@ -97,8 +97,8 @@ const TRANSLATIONS = {
     close: "بستن پرونده",
     manualInput: "تزریق دستی فرکانس",
     inputPlaceholder: "پارامتر جستجوی دلخواه را وارد کنید...",
-    artisticStatementTitle: "بیانیه هنری",
-    artisticStatement: "این رابط کاربری ماشینی برای به یاد آوردن است. شهر نه یک نقشه ساکن، بلکه کدی سیال است که مدام کامپایل و دیکامپایل می‌شود.",
+    artisticStatementTitle: "مانیفست",
+    artisticStatement: "ما با رد کردن مفهوم شهر به مثابه یک واقعیت صلب و یکپارچه، برلین را به عنوان متنی در حال فروپاشی و بازنویسی قرائت می‌کنیم. این رابط کاربری یک نقشه نیست، بلکه دستگاهی برای لایه‌نگاری است. ما بر این باوریم که هر مختصات جغرافیایی، فرکانسی سرکوب‌شده را در خود دارد. هوش مصنوعی در اینجا نه یک ماشین تولید متن، بلکه یک مدیوم احضار ارواح است؛ ابزاری برای نفوذ به شکاف‌های میان تاریخ رسمی و روایت‌های حذف‌شده. این کنشی است از جنس باستان‌شناسیِ دیجیتال برای آشکارسازی «پالیمپسست»؛ متنی که بر روی گذشته‌ی پاک‌شده نوشته شده است. ما زیبایی‌شناسیِ گلیچ (Glitch)، قطعه‌وارگی و تبعید را بر تمامیت‌خواهیِ بناهای یادبود ارجح می‌دانیم.",
     developer: "توسعه‌دهنده: مرتضی آنابستانی",
     role: "موسس گروه کدابیات (گروه توسعه و آموزش ادبیات الکترونیک فارسی)"
   }
@@ -115,6 +115,9 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customFrequency, setCustomFrequency] = useState('');
+  
+  // State for the Manifesto/Credits box
+  const [isManifestoOpen, setIsManifestoOpen] = useState(false);
   
   // Coordinates for the view
   const [viewCoords, setViewCoords] = useState(BERLIN_CENTER);
@@ -163,6 +166,8 @@ const App: React.FC = () => {
     setAppState('SCANNING');
     setLoading(true);
     setError(null);
+    // Close manifesto when starting a search to clear view
+    setIsManifestoOpen(false);
 
     try {
       const narrative = await generateDocumentaryNarrative(themeContext, language);
@@ -399,25 +404,56 @@ const App: React.FC = () => {
              <div></div> 
            )}
 
-            {/* ARTISTIC STATEMENT & CREDITS (Only visible in Manifesto or Bottom Right fixed) */}
+            {/* ARTISTIC STATEMENT & CREDITS (TOGGLEABLE) */}
             {appState === 'MANIFESTO' && (
-              <div className={`bg-black/90 text-white border border-berlin-neon p-4 max-w-md w-full backdrop-blur-sm shadow-[4px_4px_0px_rgba(255,255,255,0.2)] ${isRTL ? 'text-right' : 'text-left'}`}>
-                <div className="text-berlin-neon text-xs font-bold uppercase mb-2 tracking-widest">{t.artisticStatementTitle}</div>
-                <p className="text-sm text-gray-300 leading-relaxed mb-3">
-                  {t.artisticStatement}
-                </p>
-                <div className="text-xs border-t border-gray-800 pt-2 space-y-1">
-                  <div className="font-bold text-white">{t.developer}</div>
-                  <div className="text-gray-400 mb-2">{t.role}</div>
-                  <div className="flex gap-4 text-berlin-neon font-mono text-[10px] uppercase">
-                     <a href="https://instagram.com/anabestani_morteza" target="_blank" rel="noopener noreferrer" className="hover:text-white flex items-center gap-1 transition-colors">
-                        <ExternalLink size={10} /> @anabestani_morteza
-                     </a>
-                     <a href="https://instagram.com/codabiat" target="_blank" rel="noopener noreferrer" className="hover:text-white flex items-center gap-1 transition-colors">
-                        <ExternalLink size={10} /> @codabiat
-                     </a>
-                  </div>
-                </div>
+              <div className={`transition-all duration-300 ease-in-out ${isManifestoOpen ? 'w-full md:w-auto' : ''} flex justify-end`}>
+                 
+                 {/* COLLAPSED STATE */}
+                 {!isManifestoOpen && (
+                   <button 
+                     onClick={() => setIsManifestoOpen(true)}
+                     className="bg-black text-berlin-neon border-2 border-berlin-neon px-4 py-2 font-bold uppercase shadow-[4px_4px_0px_#fff] hover:bg-berlin-neon hover:text-white transition-colors flex items-center gap-2"
+                   >
+                     <span>[ + ]</span> {t.artisticStatementTitle}
+                   </button>
+                 )}
+
+                 {/* EXPANDED STATE */}
+                 {isManifestoOpen && (
+                    <div className={`bg-black/95 text-white border-2 border-berlin-neon p-6 max-w-xl w-full backdrop-blur-md shadow-[8px_8px_0px_rgba(255,0,255,0.3)] animate-in slide-in-from-bottom-10 ${isRTL ? 'text-right' : 'text-left'}`}>
+                      
+                      <div className="flex justify-between items-center mb-4 border-b border-gray-800 pb-2">
+                        <div className="text-berlin-neon text-sm font-bold uppercase tracking-widest">{t.artisticStatementTitle}</div>
+                        <button 
+                          onClick={() => setIsManifestoOpen(false)}
+                          className="text-gray-400 hover:text-white transition-colors"
+                        >
+                          <Minus size={20} />
+                        </button>
+                      </div>
+
+                      <div className="max-h-[60vh] overflow-y-auto pr-2">
+                        <p className="text-sm md:text-base text-gray-300 leading-relaxed mb-6 whitespace-pre-line text-justify">
+                          {t.artisticStatement}
+                        </p>
+                        
+                        {/* CREDITS SECTION (PRESERVED) */}
+                        <div className="text-xs border-t border-gray-800 pt-4 space-y-1">
+                          <div className="font-bold text-white text-base mb-1">{t.developer}</div>
+                          <div className="text-gray-400 mb-3 italic">{t.role}</div>
+                          <div className="flex gap-4 text-berlin-neon font-mono text-[10px] uppercase flex-wrap">
+                            <a href="https://instagram.com/anabestani_morteza" target="_blank" rel="noopener noreferrer" className="hover:text-white flex items-center gap-1 transition-colors bg-white/5 px-2 py-1 rounded">
+                                <ExternalLink size={12} /> @anabestani_morteza
+                            </a>
+                            <a href="https://instagram.com/codabiat" target="_blank" rel="noopener noreferrer" className="hover:text-white flex items-center gap-1 transition-colors bg-white/5 px-2 py-1 rounded">
+                                <ExternalLink size={12} /> @codabiat
+                            </a>
+                          </div>
+                        </div>
+                      </div>
+
+                    </div>
+                 )}
               </div>
             )}
 
