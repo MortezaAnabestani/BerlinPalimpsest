@@ -14,7 +14,7 @@ export interface NarrativeLayer {
   sourceRef: string; // Source of the documentary fact
 }
 
-export type AppState = 'MANIFESTO' | 'SCANNING' | 'LOCATED' | 'READING';
+export type AppState = 'MANIFESTO' | 'SCANNING' | 'LOCATED' | 'READING' | 'DREAMING';
 
 export type Language = 'en' | 'de' | 'fa';
 

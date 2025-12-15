@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { generateDocumentaryNarrative } from './services/geminiService';
+import { generateDocumentaryNarrative, generateVisualMemory } from './services/geminiService';
 import { SatelliteView } from './components/SatelliteView';
 import { BrutalistButton, ManifestoCard, CoordinatesDisplay, GlitchTitle, TypewriterText } from './components/BrutalistUI';
 import { NarrativeLayer, AppState, ThemeOption, Language } from './types';
-import { MapPin, X, AlertTriangle, ScanLine, BookOpen, ArrowRight, Terminal, ExternalLink, Minus } from 'lucide-react';
+import { MapPin, X, AlertTriangle, ScanLine, BookOpen, ArrowRight, Terminal, ExternalLink, Minus, Clapperboard, Play, Loader2, Eye } from 'lucide-react';
 
 const THEMES: ThemeOption[] = [
   { 
@@ -58,7 +58,10 @@ const TRANSLATIONS = {
     artisticStatementTitle: "MANIFESTO",
     artisticStatement: "This interface operates not as a map, but as a stratification device. We reject the static neutrality of cartography, asserting instead that every coordinate holds a suppressed frequency. By utilizing generative AI not as a creator, but as a spectral medium, we force the digital archive to speak its unconscious. This is an act of digital excavation to reveal the 'Palimpsest'—the text written over the erased past. We prioritize the glitch, the fragment, and the exile over the monument. This work explores the aesthetics of disappearance and the politics of memory in the algorithmic age.",
     developer: "Developed by Morteza Anabestani",
-    role: "Founder of Codabiat (Persian Electronic Literature Group)"
+    role: "Founder of Codabiat (Persian Electronic Literature Group)",
+    summon: "Summon Narrative",
+    dreaming: "MATERIALIZING MEMORY...",
+    dreamingDesc: "Reconstructing temporal event from archival fragments..."
   },
   de: {
     title: "BERLIN PALIMPSEST",
@@ -79,7 +82,10 @@ const TRANSLATIONS = {
     artisticStatementTitle: "MANIFEST",
     artisticStatement: "Diese Schnittstelle fungiert nicht als Karte, sondern als Stratifizierungsgerät. Wir lehnen die statische Neutralität der Kartografie ab und behaupten stattdessen, dass jede Koordinate eine unterdrückte Frequenz birgt. Indem wir generative KI nicht als Schöpfer, sondern als spektrales Medium nutzen, zwingen wir das digitale Archiv, sein Unbewusstes auszusprechen. Dies ist ein Akt der digitalen Ausgrabung, um das „Palimpsest“ zu enthüllen – den Text, der über die gelöschte Vergangenheit geschrieben wurde. Wir priorisieren den Glitch, das Fragment und das Exil gegenüber dem Monument.",
     developer: "Entwickelt von Morteza Anabestani",
-    role: "Gründer von Codabiat (Persische Gruppe für elektronische Literatur)"
+    role: "Gründer von Codabiat (Persische Gruppe für elektronische Literatur)",
+    summon: "Erzählung Beschwören",
+    dreaming: "ERINNERUNG WIRD MATERIALISIERT...",
+    dreamingDesc: "Rekonstruktion des zeitlichen Ereignisses aus Archivfragmenten..."
   },
   fa: {
     title: "پالیمپسست برلین",
@@ -100,7 +106,10 @@ const TRANSLATIONS = {
     artisticStatementTitle: "مانیفست",
     artisticStatement: "ما با رد کردن مفهوم شهر به مثابه یک واقعیت صلب و یکپارچه، برلین را به عنوان متنی در حال فروپاشی و بازنویسی قرائت می‌کنیم. این رابط کاربری یک نقشه نیست، بلکه دستگاهی برای لایه‌نگاری است. ما بر این باوریم که هر مختصات جغرافیایی، فرکانسی سرکوب‌شده را در خود دارد. هوش مصنوعی در اینجا نه یک ماشین تولید متن، بلکه یک مدیوم احضار ارواح است؛ ابزاری برای نفوذ به شکاف‌های میان تاریخ رسمی و روایت‌های حذف‌شده. این کنشی است از جنس باستان‌شناسیِ دیجیتال برای آشکارسازی «پالیمپسست»؛ متنی که بر روی گذشته‌ی پاک‌شده نوشته شده است. ما زیبایی‌شناسیِ گلیچ (Glitch)، قطعه‌وارگی و تبعید را بر تمامیت‌خواهیِ بناهای یادبود ارجح می‌دانیم.",
     developer: "توسعه‌دهنده: مرتضی آنابستانی",
-    role: "موسس گروه کدابیات (گروه توسعه و آموزش ادبیات الکترونیک فارسی)"
+    role: "موسس گروه کدابیات (گروه توسعه و آموزش ادبیات الکترونیک فارسی)",
+    summon: "احضار روایت",
+    dreaming: "در حال تجسم خاطره...",
+    dreamingDesc: "بازسازی رویداد زمانی از قطعات آرشیو..."
   }
 };
 
@@ -115,6 +124,8 @@ const App: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [customFrequency, setCustomFrequency] = useState('');
+  const [visualUrl, setVisualUrl] = useState<string | null>(null);
+  const [isVisualLoading, setIsVisualLoading] = useState(false);
   
   // State for the Manifesto/Credits box
   const [isManifestoOpen, setIsManifestoOpen] = useState(false);
@@ -132,6 +143,7 @@ const App: React.FC = () => {
       case 'SCANNING': return 13; // Searching View
       case 'LOCATED': return 17; // Street Level
       case 'READING': return 18; // Detail Level
+      case 'DREAMING': return 19; // Close up for dreaming
       default: return 12;
     }
   };
@@ -166,6 +178,7 @@ const App: React.FC = () => {
     setAppState('SCANNING');
     setLoading(true);
     setError(null);
+    setVisualUrl(null); // Reset video/visual
     // Close manifesto when starting a search to clear view
     setIsManifestoOpen(false);
 
@@ -188,10 +201,32 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSummonVisual = async () => {
+    if (!currentNarrative) return;
+    
+    // No explicit API key check needed for standard Flash models (process.env.API_KEY is sufficient)
+    
+    setAppState('DREAMING');
+    setIsVisualLoading(true);
+    setError(null);
+
+    try {
+      const url = await generateVisualMemory(currentNarrative);
+      setVisualUrl(url);
+    } catch (err: any) {
+      console.error(err);
+      setError("Visual reconstruction failed. The signal is too weak.");
+      setAppState('READING'); // Go back
+    } finally {
+      setIsVisualLoading(false);
+    }
+  };
+
   const reset = () => {
     setAppState('MANIFESTO');
     setCurrentNarrative(null);
     setCustomFrequency('');
+    setVisualUrl(null);
   };
 
   return (
@@ -213,7 +248,7 @@ const App: React.FC = () => {
             lat={viewCoords.lat}
             lng={viewCoords.lng}
             zoom={getZoomLevel()}
-            opacity={appState === 'READING' ? 0.8 : 0.4} 
+            opacity={(appState === 'READING' || appState === 'DREAMING') ? 0.8 : 0.4} 
         />
       </div>
 
@@ -249,7 +284,6 @@ const App: React.FC = () => {
         </header>
 
         {/* Main Content Area */}
-        {/* Changed layout classes to prevent cutting off top/bottom on smaller screens */}
         <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 pointer-events-auto w-full z-10">
           <div className="min-h-full flex flex-col items-center justify-center py-8">
           
@@ -378,8 +412,58 @@ const App: React.FC = () => {
                   </div>
                 </div>
               </div>
-
             </div>
+          )}
+
+          {/* STATE: DREAMING (Visual Memory / Fake Video) */}
+          {appState === 'DREAMING' && (
+             <div className="flex flex-col items-center justify-center w-full h-full p-4 relative z-50">
+               
+               {/* Loading Phase */}
+               {isVisualLoading && (
+                  <div className="text-center space-y-6">
+                    <Loader2 size={64} className="text-berlin-neon animate-spin mx-auto" />
+                    <div className="space-y-2">
+                      <div className="bg-black text-white text-2xl font-black border-4 border-berlin-neon px-6 py-4 uppercase animate-pulse shadow-[8px_8px_0px_#ff00ff]">
+                        {t.dreaming}
+                      </div>
+                      <div className="text-berlin-neon font-mono text-sm bg-black inline-block px-2">
+                         {t.dreamingDesc}
+                      </div>
+                    </div>
+                  </div>
+               )}
+
+               {/* Visual Memory Phase (Simulated Video) */}
+               {!isVisualLoading && visualUrl && (
+                  <div className="relative w-full max-w-5xl border-4 border-berlin-neon bg-black shadow-[0_0_50px_rgba(255,0,255,0.3)] animate-in zoom-in duration-500 overflow-hidden aspect-video group">
+                     
+                     {/* Overlay UI for Video feel */}
+                     <div className="absolute top-4 left-4 z-20 bg-black/80 px-2 py-1 text-berlin-neon text-xs font-mono border border-berlin-neon flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-red-600 animate-pulse"></div>
+                        REC [ARCHIVE]
+                     </div>
+                     <div className="absolute bottom-4 right-4 z-20 text-white/50 font-mono text-xs">
+                        {currentNarrative?.location.placeName.toUpperCase()}
+                     </div>
+
+                     {/* The Generated Image with Ken Burns Effect */}
+                     <img 
+                       src={visualUrl} 
+                       alt="Reconstructed Memory"
+                       className="w-full h-full object-cover animate-ken-burns filter grayscale contrast-125 sepia-[0.2]"
+                     />
+
+                     {/* Close Button */}
+                     <button 
+                       onClick={() => setAppState('READING')}
+                       className="absolute top-0 right-0 m-4 bg-red-600 text-white p-2 border-2 border-white hover:bg-red-700 shadow-[4px_4px_0px_#fff] z-30"
+                     >
+                       <X size={24} />
+                     </button>
+                  </div>
+               )}
+             </div>
           )}
           
           </div>
@@ -458,7 +542,15 @@ const App: React.FC = () => {
             )}
 
            {appState === 'READING' && (
-              <div className="w-full flex justify-center">
+              <div className="w-full flex justify-center gap-4 flex-wrap">
+                {/* SUMMON VISUAL MEMORY BUTTON (RENAMED FROM VIDEO) */}
+                <button 
+                  onClick={handleSummonVisual}
+                  className="bg-berlin-neon text-white border-2 border-white px-6 py-2 hover:bg-white hover:text-berlin-neon hover:border-berlin-neon transition-colors font-bold uppercase flex items-center gap-2 shadow-[4px_4px_0px_#fff]"
+                >
+                  <Eye size={18} /> {t.summon}
+                </button>
+
                 <button 
                   onClick={() => setAppState('LOCATED')}
                   className="bg-black text-white border-2 border-white px-6 py-2 hover:bg-berlin-neon hover:border-berlin-neon transition-colors font-bold uppercase flex items-center gap-2 shadow-[4px_4px_0px_#fff]"
