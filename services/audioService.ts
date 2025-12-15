@@ -44,8 +44,9 @@ class AudioSynth {
     osc.frequency.setValueAtTime(800, this.ctx.currentTime);
     osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
     
-    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.1);
+    // Reduced gain to ~10% feel
+    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
 
     osc.start();
     osc.stop(this.ctx.currentTime + 0.1);
@@ -62,7 +63,8 @@ class AudioSynth {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(200, this.ctx.currentTime);
     
-    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+    // Very subtle hover sound
+    gain.gain.setValueAtTime(0.02, this.ctx.currentTime);
     gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.05);
 
     osc.start();
@@ -92,8 +94,9 @@ class AudioSynth {
     filter.connect(gain);
     gain.connect(this.ctx.destination);
 
-    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+    // Reduced gain for scanning noise
+    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.5);
 
     noise.start();
   }
@@ -104,7 +107,9 @@ class AudioSynth {
 
     this.droneGain = this.ctx.createGain();
     this.droneGain.gain.setValueAtTime(0, this.ctx.currentTime);
-    this.droneGain.gain.linearRampToValueAtTime(0.15, this.ctx.currentTime + 2); // Fade in
+    
+    // REDUCED VOLUME: Target 0.05 (approx 5-10% perceptual volume)
+    this.droneGain.gain.linearRampToValueAtTime(0.05, this.ctx.currentTime + 2); // Fade in
     this.droneGain.connect(this.ctx.destination);
 
     // Create 3 oscillators for a dissonant chord
