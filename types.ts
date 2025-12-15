@@ -1,3 +1,4 @@
+
 export interface LocationData {
   latitude: number;
   longitude: number;
@@ -14,7 +15,7 @@ export interface NarrativeLayer {
   sourceRef: string; // Source of the documentary fact
 }
 
-export type AppState = 'MANIFESTO' | 'SCANNING' | 'LOCATED' | 'READING' | 'DREAMING';
+export type AppState = 'MANIFESTO' | 'SCANNING' | 'LOCATED' | 'READING' | 'DREAMING' | 'SUMMONED';
 
 export type Language = 'en' | 'de' | 'fa';
 

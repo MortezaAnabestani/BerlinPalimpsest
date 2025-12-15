@@ -65,15 +65,23 @@ export const generateDocumentaryNarrative = async (themeContext: string, languag
 
     const data = JSON.parse(jsonText);
 
+    // Validate coordinates to prevent Leaflet crashing with NaN
+    const lat = parseFloat(String(data.latitude));
+    const lng = parseFloat(String(data.longitude));
+
+    if (isNaN(lat) || isNaN(lng)) {
+        throw new Error("Invalid coordinates returned from AI");
+    }
+
     return {
       id: crypto.randomUUID(),
       theme: themeContext,
       title: data.title,
       content: data.content,
       location: {
-        latitude: data.latitude,
-        longitude: data.longitude,
-        placeName: data.placeName
+        latitude: lat,
+        longitude: lng,
+        placeName: data.placeName || "Unknown Location"
       },
       historicalContext: data.historicalContext,
       sourceRef: data.sourceRef
@@ -89,9 +97,9 @@ export const generateDocumentaryNarrative = async (themeContext: string, languag
         ? "سیگنال آرشیو ضعیف است. لایه‌های شهر از هم جدا نمی‌شوند."
         : "The signal from the archive is weak. The layers of the city refuse to separate.",
       location: {
-        latitude: 52.5200,
-        longitude: 13.4050,
-        placeName: "Alexanderplatz (Signal Lost)"
+        latitude: 52.520008,
+        longitude: 13.404954,
+        placeName: "Berlin (Signal Lost)"
       },
       historicalContext: "System Error",
       sourceRef: "System Log"
@@ -102,22 +110,24 @@ export const generateDocumentaryNarrative = async (themeContext: string, languag
 export const generateVisualMemory = async (narrative: NarrativeLayer): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // Since we cannot take a literal screenshot of the map component server-side,
-  // we instruct the image model to reconstruct the visual "Soul" of that specific coordinate.
-  // We ask for a style that mimics a "live event" or archival footage to simulate the video feel.
-  
+  // UPDATED PROMPT: Focus heavily on the EVENT and HUMAN ACTION, less on empty buildings.
   const visualPrompt = `
-    A hyper-realistic, atmospheric, documentary-style photograph of ${narrative.location.placeName}, Berlin.
+    A historical reconstruction of the EVENT occurring at: ${narrative.location.placeName}, Berlin.
     
-    CONTEXT: ${narrative.historicalContext}
-    ATMOSPHERE: ${narrative.content.slice(0, 100)}...
+    NARRATIVE CONTEXT (What is happening?): ${narrative.content}
+    HISTORICAL FACT: ${narrative.historicalContext}
     
-    STYLE:
-    - Brutalist aesthetic, high contrast black and white or desaturated cold colors.
-    - Grainy, like 16mm archival film or surveillance footage.
-    - The angle should look like an establishing shot from a documentary or a street-level witness view.
-    - NO TEXT overlay.
-    - Make it look like a captured memory of the event described.
+    CRITICAL INSTRUCTION:
+    Do not just show a building. Show the **EVENT**.
+    The image must be from a **Bird's Eye View / Top-Down Satellite Perspective** to blend with a map.
+    
+    VISUAL CONTENTS:
+    1.  **HUMAN PRESENCE & ACTION**: Show the people described in the text. Are they protesting? Fleeing? Waiting in line? Whispering in shadows?
+    2.  **ATMOSPHERE**: If it's a tragic story, make it dark and rainy. If it's a revolt, show smoke or crowds. 
+    3.  **DETAILS**: Police cars, barricades, suitcases, propaganda posters on the ground—whatever matches the narrative.
+    4.  **STYLE**: Archival Surveillance Photo. Grainy, black and white or sepia, high contrast. "The Lives of Others" aesthetic.
+    
+    Make the viewer feel like they are looking through a time portal at the specific moment history happened.
   `;
 
   console.log("Generating visual memory with prompt:", visualPrompt);
@@ -129,13 +139,11 @@ export const generateVisualMemory = async (narrative: NarrativeLayer): Promise<s
         { text: visualPrompt }
       ],
     },
-    // No specific config needed for standard image gen in 2.5-flash-image
   });
 
   // Extract base64 image
   let base64Image = null;
   
-  // Iterate to find image part
   if (response.candidates?.[0]?.content?.parts) {
     for (const part of response.candidates[0].content.parts) {
       if (part.inlineData) {
