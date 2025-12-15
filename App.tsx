@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { generateDocumentaryNarrative, generateVisualMemory } from './services/geminiService';
+import { generateDocumentaryNarrative, generateVisualMemory, generateGhostSignal } from './services/geminiService';
 import { audioManager } from './services/audioService';
-import { SatelliteView } from './components/SatelliteView';
+import { SatelliteView, GhostLayer } from './components/SatelliteView';
 import { BrutalistButton, ManifestoCard, CoordinatesDisplay, GlitchTitle, TypewriterText } from './components/BrutalistUI';
-import { NarrativeLayer, AppState, ThemeOption, Language } from './types';
-import { MapPin, X, AlertTriangle, ScanLine, BookOpen, ArrowRight, Terminal, ExternalLink, Minus, Clapperboard, Play, Loader2, Eye, Volume2, VolumeX, Camera, ChevronDown, ChevronUp, Maximize2 } from 'lucide-react';
+import { NarrativeLayer, AppState, ThemeOption, Language, GhostPersona } from './types';
+import { MapPin, X, AlertTriangle, ScanLine, BookOpen, ArrowRight, Terminal, ExternalLink, Minus, Clapperboard, Play, Loader2, Eye, Volume2, VolumeX, Camera, ChevronDown, ChevronUp, Maximize2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const THEMES: ThemeOption[] = [
   { 
@@ -36,6 +36,76 @@ const THEMES: ThemeOption[] = [
     id: 'squat',
     label: { en: 'Occupied Spaces', de: 'Besetzte Räume', fa: 'فضاهای اشغال‌شده' },
     promptContext: 'The history of the squatter movement (Hausbesetzer) and counter-culture art spaces in Kreuzberg and Mitte.'
+  },
+  {
+    id: 'colonial',
+    label: { en: 'Colonial Traces', de: 'Koloniale Spuren', fa: 'ردپای استعمار' },
+    promptContext: 'Locations connected to Germany’s colonial past and the renaming of streets or removal of statues.'
+  },
+  {
+    id: 'afro',
+    label: { en: 'Afro-German History', de: 'Afrodeutsche Geschichte', fa: 'تاریخ آفریقایی-آلمانی' },
+    promptContext: 'Places significant to the Afro-German community, Audre Lorde’s years in Berlin, and Black feminist organizing.'
+  },
+  {
+    id: 'contract',
+    label: { en: 'Vietnamese Voices', de: 'Vietnamesische Stimmen', fa: 'صداهای ویتنامی' },
+    promptContext: 'The history of "Vertragsarbeiter" (contract workers) from Vietnam in East Berlin and the Dong Xuan Center.'
+  },
+  {
+    id: 'gastarbeiter',
+    label: { en: 'Guest Worker Music', de: 'Gastarbeitermusik', fa: 'موسیقی کارگران مهمان' },
+    promptContext: 'Music venues and cultural centers established by Turkish guest workers in Kreuzberg in the 70s and 80s.'
+  },
+  {
+    id: 'romani',
+    label: { en: 'Sinti & Roma Memory', de: 'Sinti & Roma Erinnerung', fa: 'حافظه سینتی و روما' },
+    promptContext: 'Memorials and sites of persecution of Sinti and Roma people during the Nazi era.'
+  },
+  {
+    id: 'stasi',
+    label: { en: 'Surveillance Victims', de: 'Opfer der Überwachung', fa: 'قربانیان نظارت' },
+    promptContext: 'Former Stasi prisons, interrogation centers, and safe houses used for psychological decomposition.'
+  },
+  {
+    id: 'club',
+    label: { en: 'Bunker Rhythms', de: 'Bunkerrhythmen', fa: 'ریتم‌های پناهگاه' },
+    promptContext: 'The repurposing of WWII bunkers into techno clubs and spaces of subcultural freedom after the wall fell.'
+  },
+  {
+    id: 'jewish',
+    label: { en: 'Lost Synagogues', de: 'Verlorene Synagogen', fa: 'کنیسه‌های گمشده' },
+    promptContext: 'Sites of synagogues destroyed during Kristallnacht that are now empty lots or parks.'
+  },
+  {
+    id: 'book',
+    label: { en: 'Scorched Books', de: 'Verbrannte Bücher', fa: 'کتاب‌های سوخته' },
+    promptContext: 'Locations of the 1933 book burnings and the libraries of persecuted intellectuals.'
+  },
+  {
+    id: 'wall',
+    label: { en: 'Wall Jumpers', de: 'Mauerspringer', fa: 'پریدن از دیوار' },
+    promptContext: 'Stories of people who died trying to cross the Berlin Wall or successful escapes.'
+  },
+  {
+    id: 'punk',
+    label: { en: 'East Berlin Punk', de: 'Ost-Berliner Punk', fa: 'پانک برلین شرقی' },
+    promptContext: 'Illegal concerts in churches and basements in East Berlin during the GDR.'
+  },
+  {
+    id: 'refugee',
+    label: { en: 'Refugee Movements', de: 'Flüchtlingsbewegungen', fa: 'جنبش‌های پناهندگان' },
+    promptContext: 'Oranienplatz protests and other sites of refugee resistance and occupation in Berlin.'
+  },
+  {
+    id: 'women',
+    label: { en: 'Rubble Women', de: 'Trümmerfrauen', fa: 'زنان آواربردار' },
+    promptContext: 'The women who cleared the rubble of Berlin after WWII, often overlooked in the grand narrative of reconstruction.'
+  },
+  {
+    id: 'asylum',
+    label: { en: 'History of Madness', de: 'Geschichte des Wahnsinns', fa: 'تاریخ جنون' },
+    promptContext: 'Historical sanatoriums and the treatment of mental illness in Berlin, including T4 program sites.'
   }
 ];
 
@@ -50,7 +120,7 @@ const TRANSLATIONS = {
     target: "Target Identified",
     evidence: "Documentary Evidence",
     context: "HISTORICAL CONTEXT",
-    source: "Source Ref",
+    source: "Source Reference",
     status: "Status",
     statusValue: "ARCHIVE DECLASSIFIED",
     close: "Close File",
@@ -125,12 +195,17 @@ const App: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [customFrequency, setCustomFrequency] = useState('');
   const [visualUrl, setVisualUrl] = useState<string | null>(null);
+  const [ghostPersona, setGhostPersona] = useState<GhostPersona | null>(null);
   const [isVisualLoading, setIsVisualLoading] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isManifestoOpen, setIsManifestoOpen] = useState(false);
   const [isNarrativeMinimized, setIsNarrativeMinimized] = useState(false);
   const [viewCoords, setViewCoords] = useState(BERLIN_CENTER);
   const [flash, setFlash] = useState(false); 
+
+  // Scanner State
+  const [activeThemeIndex, setActiveThemeIndex] = useState(0);
+  const [isThemeCycling, setIsThemeCycling] = useState(true);
 
   const imageContainerRef = useRef<HTMLDivElement>(null);
   
@@ -154,6 +229,17 @@ const App: React.FC = () => {
          audioManager.stopDrone();
      }
   }, [appState, isVisualLoading]);
+
+  // Scanner Loop
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (appState === 'MANIFESTO' && isThemeCycling) {
+      interval = setInterval(() => {
+        setActiveThemeIndex(prev => (prev + 1) % THEMES.length);
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [appState, isThemeCycling]);
 
   // Reset minimization when new narrative loads
   useEffect(() => {
@@ -204,6 +290,7 @@ const App: React.FC = () => {
     setLoading(true);
     setError(null);
     setVisualUrl(null); 
+    setGhostPersona(null);
     setIsManifestoOpen(false);
 
     try {
@@ -237,9 +324,16 @@ const App: React.FC = () => {
     setTimeout(() => setFlash(false), 200);
 
     try {
+      // Step 1: Generate the Image first (Latency priority)
       const url = await generateVisualMemory(currentNarrative);
       setVisualUrl(url);
-      setAppState('SUMMONED'); 
+      setAppState('SUMMONED'); // Show image immediately
+      
+      // Step 2: Now analyze the image to find the ghost signal (Multimodal)
+      // This happens silently while user looks at image
+      const ghost = await generateGhostSignal(currentNarrative, language, url);
+      setGhostPersona(ghost);
+
     } catch (err: any) {
       console.error(err);
       setError("Visual reconstruction failed.");
@@ -254,6 +348,7 @@ const App: React.FC = () => {
     setCurrentNarrative(null);
     setCustomFrequency('');
     setVisualUrl(null);
+    setGhostPersona(null);
     setIsNarrativeMinimized(false);
   };
 
@@ -352,17 +447,80 @@ const App: React.FC = () => {
                         </div>
                     </ManifestoCard>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {THEMES.map(theme => (
-                        <BrutalistButton 
-                            key={theme.id} 
-                            onClick={() => handleThemeSelect(theme.promptContext)}
-                            onMouseEnter={() => audioManager.playHover()}
-                            className={isRTL ? 'font-sans' : 'font-mono'}
-                        >
-                            {theme.label[language]}
-                        </BrutalistButton>
-                        ))}
+                    {/* CYCLING FREQUENCY SELECTOR (REPLACES GRID) */}
+                    <div className="w-full max-w-xl mx-auto">
+                         <div className="flex justify-between items-end mb-1 px-1">
+                            <div className="text-[10px] text-berlin-concrete font-mono">
+                                AUTOMATED FREQUENCY SCANNER
+                            </div>
+                            <div className="text-[10px] text-berlin-neon font-bold animate-pulse">
+                                {isThemeCycling ? 'SCANNING...' : ':: SIGNAL PAUSED ::'}
+                            </div>
+                         </div>
+                         
+                         <div 
+                            className="relative border-4 border-white bg-black h-48 group cursor-pointer overflow-hidden shadow-[8px_8px_0px_#fff] active:shadow-none active:translate-x-1 active:translate-y-1 transition-all"
+                            onMouseEnter={() => setIsThemeCycling(false)}
+                            onMouseLeave={() => setIsThemeCycling(true)}
+                            onClick={() => handleThemeSelect(THEMES[activeThemeIndex].promptContext)}
+                         >
+                            {/* PROGRESS BAR */}
+                            <div className={`absolute top-0 left-0 h-1 bg-berlin-neon z-20 ${isThemeCycling ? 'w-full transition-all duration-[3000ms] ease-linear' : 'w-full'}`} 
+                                 key={activeThemeIndex} // Force reset animation
+                                 style={{ 
+                                     // This is tricky with simple CSS transitions. 
+                                     // Better to use a keyframe animation in CSS class.
+                                     animation: isThemeCycling ? 'scanBar 3s linear infinite' : 'none',
+                                     width: '100%' // The animation handles the width from 0 to 100
+                                 }}
+                            />
+
+                            {/* NAVIGATION ARROWS (Visible on hover) */}
+                            <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveThemeIndex(prev => (prev - 1 + THEMES.length) % THEMES.length);
+                                }}
+                                className="absolute left-0 top-0 bottom-0 w-12 bg-gradient-to-r from-black/80 to-transparent z-30 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 hover:bg-black/90 transition-all"
+                            >
+                                <ChevronLeft />
+                            </button>
+                             <button 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setActiveThemeIndex(prev => (prev + 1) % THEMES.length);
+                                }}
+                                className="absolute right-0 top-0 bottom-0 w-12 bg-gradient-to-l from-black/80 to-transparent z-30 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 hover:bg-black/90 transition-all"
+                            >
+                                <ChevronRight />
+                            </button>
+
+                            {/* CONTENT */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center z-10" key={activeThemeIndex}>
+                                <div className="animate-in slide-in-from-bottom-full duration-500 ease-out w-full bg-black"> {/* "Rewriting" effect: enters from bottom */}
+                                    <h3 className={`text-2xl md:text-3xl font-black uppercase text-white mb-3 leading-none ${isRTL ? 'font-sans' : 'font-mono'}`}>
+                                        {THEMES[activeThemeIndex].label[language]}
+                                    </h3>
+                                    <p className="text-berlin-concrete text-xs font-mono border-t border-dashed border-gray-600 pt-2 inline-block">
+                                        {THEMES[activeThemeIndex].promptContext.substring(0, 80)}...
+                                    </p>
+                                </div>
+                            </div>
+                            
+                            {/* Background noise/grid */}
+                            <div className="absolute inset-0 opacity-10 pointer-events-none" 
+                                style={{ backgroundImage: 'linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px)', backgroundSize: '20px 20px' }}>
+                            </div>
+                         </div>
+                         
+                         <div className="flex justify-between items-start mt-2 px-1">
+                             <div className="text-[10px] text-gray-500 font-mono max-w-[200px]">
+                                 {t.missionText.substring(0, 50)}...
+                             </div>
+                             <div className="text-xs font-bold font-mono">
+                                 {String(activeThemeIndex + 1).padStart(2, '0')} / {THEMES.length}
+                             </div>
+                         </div>
                     </div>
 
                     <div className="bg-black p-1 shadow-[4px_4px_0px_#fff]">
@@ -424,7 +582,8 @@ const App: React.FC = () => {
                                         <AlertTriangle size={16} /><span>{t.evidence}</span>
                                     </div>
                                 )}
-                                <h2 className={`${isNarrativeMinimized ? 'text-sm font-bold truncate' : 'text-xl md:text-3xl font-black uppercase leading-tight break-words pr-4'}`}>{currentNarrative.title}</h2>
+                                {/* Title Color Fixed: text-gray-800 ensures it is visible on white background */}
+                                <h2 className={`${isNarrativeMinimized ? 'text-sm font-bold truncate text-gray-800' : 'text-xl md:text-3xl font-black uppercase leading-tight break-words pr-4 text-gray-800'}`}>{currentNarrative.title}</h2>
                              </div>
                              
                              {/* Minimize/Maximize Button */}
@@ -439,12 +598,18 @@ const App: React.FC = () => {
                         {/* Collapsible Content */}
                         {!isNarrativeMinimized && (
                             <div className="animate-in fade-in slide-in-from-top-2 duration-300">
-                                <div className="font-mono text-sm text-gray-500 mb-4" dir="ltr">{currentNarrative.location.placeName}</div>
+                                <div className="font-mono text-sm text-gray-700 font-bold mb-4" dir="ltr">{currentNarrative.location.placeName}</div>
                                 <div className={`prose prose-lg text-black prose-p:leading-relaxed mb-6 max-w-none ${isRTL ? 'font-sans' : 'font-mono'}`}>
                                     <p className="whitespace-pre-wrap text-sm md:text-base"><TypewriterText text={currentNarrative.content} speed={2} /></p>
                                 </div>
                                 <div className={`bg-zinc-100 border-berlin-neon p-4 text-xs md:text-sm font-bold text-gray-800 ${isRTL ? 'border-r-4' : 'border-l-4'}`}>
                                     {t.context}: {currentNarrative.historicalContext}
+                                </div>
+                                
+                                {/* Source Section */}
+                                <div className="mt-2 text-[10px] text-gray-500 font-mono text-right flex items-center justify-end gap-1 pt-1 border-t border-gray-200 border-dashed">
+                                    <BookOpen size={10} />
+                                    <span>{t.source}: {currentNarrative.sourceRef}</span>
                                 </div>
                             </div>
                         )}
@@ -481,6 +646,12 @@ const App: React.FC = () => {
             
           </div>
       </div>
+      
+      {/* NEW INTERACTIVE GHOST LAYER - RENDERED LAST TO BE ON TOP */}
+      {/* This ensures the red dot is clickable above everything else */}
+      {appState === 'SUMMONED' && !isVisualLoading && (
+          <GhostLayer ghostPersona={ghostPersona} />
+      )}
 
       {/* FOOTER */}
       <footer className="fixed bottom-0 left-0 w-full p-6 pointer-events-none z-40 flex flex-col md:flex-row justify-between items-end gap-4">

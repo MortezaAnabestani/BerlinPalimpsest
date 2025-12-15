@@ -1,3 +1,4 @@
+
 // A procedural audio synthesizer for Brutalist soundscapes
 // No external files required.
 
@@ -40,16 +41,18 @@ class AudioSynth {
     osc.connect(gain);
     gain.connect(this.ctx.destination);
 
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(800, this.ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+    // Changed to sine for a softer, more "glassy" interface sound
+    osc.type = 'sine';
+    // Higher pitch, shorter duration for a "tick"
+    osc.frequency.setValueAtTime(1200, this.ctx.currentTime); 
     
-    // Reduced gain to ~10% feel
-    gain.gain.setValueAtTime(0.05, this.ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.1);
+    // Short envelope
+    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.1, this.ctx.currentTime + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.05);
 
     osc.start();
-    osc.stop(this.ctx.currentTime + 0.1);
+    osc.stop(this.ctx.currentTime + 0.05);
   }
 
   playHover() {

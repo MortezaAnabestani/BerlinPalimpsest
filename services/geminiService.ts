@@ -1,8 +1,9 @@
 import { GoogleGenAI } from "@google/genai";
-import { NarrativeLayer, Language } from '../types';
+import { NarrativeLayer, Language, GhostPersona } from '../types';
 
 const TEXT_MODEL_NAME = 'gemini-2.5-flash';
-const IMAGE_MODEL_NAME = 'gemini-2.5-flash-image'; // Using image model as free alternative to Veo
+// Upgraded to Pro Image model for higher reliability and quality
+const IMAGE_MODEL_NAME = 'gemini-3-pro-image-preview';
 
 export const generateDocumentaryNarrative = async (themeContext: string, language: Language): Promise<NarrativeLayer> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
@@ -110,24 +111,20 @@ export const generateDocumentaryNarrative = async (themeContext: string, languag
 export const generateVisualMemory = async (narrative: NarrativeLayer): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  // UPDATED PROMPT: Focus heavily on the EVENT and HUMAN ACTION, less on empty buildings.
+  // Simplified and direct prompt for better adherence
   const visualPrompt = `
-    A historical reconstruction of the EVENT occurring at: ${narrative.location.placeName}, Berlin.
+    Generate a photorealistic, top-down satellite-view image of:
+    ${narrative.location.placeName}, Berlin.
     
-    NARRATIVE CONTEXT (What is happening?): ${narrative.content}
-    HISTORICAL FACT: ${narrative.historicalContext}
+    Scene Description:
+    ${narrative.content}
     
-    CRITICAL INSTRUCTION:
-    Do not just show a building. Show the **EVENT**.
-    The image must be from a **Bird's Eye View / Top-Down Satellite Perspective** to blend with a map.
-    
-    VISUAL CONTENTS:
-    1.  **HUMAN PRESENCE & ACTION**: Show the people described in the text. Are they protesting? Fleeing? Waiting in line? Whispering in shadows?
-    2.  **ATMOSPHERE**: If it's a tragic story, make it dark and rainy. If it's a revolt, show smoke or crowds. 
-    3.  **DETAILS**: Police cars, barricades, suitcases, propaganda posters on the ground—whatever matches the narrative.
-    4.  **STYLE**: Archival Surveillance Photo. Grainy, black and white or sepia, high contrast. "The Lives of Others" aesthetic.
-    
-    Make the viewer feel like they are looking through a time portal at the specific moment history happened.
+    Visual Style:
+    - Surveillance photography aesthetic.
+    - Grainy, high-contrast black and white (or sepia).
+    - Bird's eye view looking straight down.
+    - Historical atmosphere matching the context: ${narrative.historicalContext}.
+    - Include details like crowds, police barriers, or specific architectural elements mentioned.
   `;
 
   console.log("Generating visual memory with prompt:", visualPrompt);
@@ -139,6 +136,12 @@ export const generateVisualMemory = async (narrative: NarrativeLayer): Promise<s
         { text: visualPrompt }
       ],
     },
+    config: {
+        imageConfig: {
+            aspectRatio: "1:1",
+            imageSize: "1K"
+        }
+    }
   });
 
   // Extract base64 image
@@ -154,8 +157,78 @@ export const generateVisualMemory = async (narrative: NarrativeLayer): Promise<s
   }
 
   if (!base64Image) {
+    // Attempt to extract text refusal for debugging/feedback
+    const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text)?.text;
+    console.warn("Visual generation failed. Model response:", textPart);
+    
+    if (textPart) {
+        throw new Error(`Visual blocked by protocol: ${textPart.substring(0, 50)}...`);
+    }
     throw new Error("Visual reconstruction failed: No image data returned.");
   }
 
   return `data:image/png;base64,${base64Image}`;
+};
+
+export const generateGhostSignal = async (narrative: NarrativeLayer, language: Language, imageBase64: string): Promise<GhostPersona | null> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+
+  const langInstruction = {
+      en: "Write in English.",
+      de: "Write in German.",
+      fa: "Write in Persian (Farsi)."
+  }[language];
+
+  // Pass the generated image back to the model for analysis (Multimodal)
+  const prompt = `
+    Analyze this image. It is a historical reconstruction of: "${narrative.content}".
+    
+    Task: Identify ONE distinct human figure in this image that looks important or emotional.
+    
+    1. **Coordinates**: Estimate their position in percentage (0-100) for X and Y axis. 
+       - X=0 is left, X=100 is right.
+       - Y=0 is top, Y=100 is bottom.
+    2. **Persona**: Create a very short inner monologue for this person.
+    
+    ${langInstruction}
+    
+    Return ONLY a JSON object:
+    {
+      "role": "The person's role (e.g., Student, Police, Worker)",
+      "monologue": "Very short thought (10 words max).",
+      "x": 45,
+      "y": 60
+    }
+  `;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: TEXT_MODEL_NAME, // Flash supports multimodal input
+      contents: {
+        parts: [
+          {
+             inlineData: {
+               mimeType: "image/png",
+               data: imageBase64.split(',')[1] // Remove data:image/png;base64, prefix
+             }
+          },
+          { text: prompt }
+        ]
+      },
+      config: { responseMimeType: "application/json" }
+    });
+    
+    const text = response.text;
+    if (!text) return null;
+    return JSON.parse(text) as GhostPersona;
+  } catch (e) {
+    console.warn("Failed to generate ghost signal", e);
+    // Fallback if image analysis fails
+    return {
+        role: "Unknown Signal",
+        monologue: "...",
+        x: 50,
+        y: 50
+    };
+  }
 };
