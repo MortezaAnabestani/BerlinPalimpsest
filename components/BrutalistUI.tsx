@@ -41,11 +41,11 @@ export const ManifestoCard: React.FC<{ children: React.ReactNode }> = ({ childre
   </div>
 );
 
-export const CoordinatesDisplay: React.FC<{ lat: number; lng: number }> = ({ lat, lng }) => (
-  <div dir="ltr" className="fixed top-0 right-0 p-4 bg-black border-b-4 border-l-4 border-berlin-neon text-berlin-neon font-mono text-xs md:text-sm z-50">
+export const CoordinatesDisplay: React.FC<{ lat: number; lng: number; className?: string }> = ({ lat, lng, className = '' }) => (
+  <div dir="ltr" className={`bg-black border-2 border-berlin-neon text-berlin-neon font-mono text-xs p-2 shadow-[4px_4px_0px_#ff00ff] ${className}`}>
     <div>LAT: {lat.toFixed(6)}</div>
     <div>LNG: {lng.toFixed(6)}</div>
-    <div className="animate-pulse mt-1">:: SATELLITE LINK ACTIVE ::</div>
+    <div className="animate-pulse mt-1 text-[10px]">:: SATELLITE LINK ACTIVE ::</div>
   </div>
 );
 

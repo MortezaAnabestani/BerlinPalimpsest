@@ -1,3 +1,4 @@
+
 export interface LocationData {
   latitude: number;
   longitude: number;
@@ -14,7 +15,14 @@ export interface NarrativeLayer {
   sourceRef: string; // Source of the documentary fact
 }
 
-export type AppState = 'MANIFESTO' | 'SCANNING' | 'LOCATED' | 'READING';
+export interface GhostPersona {
+  role: string; // e.g., "Anxious Student", "Stasi Officer"
+  monologue: string; // "My hands are shaking..."
+  x: number; // Percentage coordinate (0-100)
+  y: number; // Percentage coordinate (0-100)
+}
+
+export type AppState = 'MANIFESTO' | 'SCANNING' | 'LOCATED' | 'READING' | 'DREAMING' | 'SUMMONED';
 
 export type Language = 'en' | 'de' | 'fa';
 
